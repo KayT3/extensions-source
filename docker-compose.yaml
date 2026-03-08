@@ -1,0 +1,14 @@
+services:
+  test:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+      args:
+        KEY_STORE_PASSWORD: ${KEY_STORE_PASSWORD}
+        ALIAS: ${ALIAS}
+        KEY_PASSWORD: ${KEY_PASSWORD}
+    ports:
+      - "80:80"
+
+
+
