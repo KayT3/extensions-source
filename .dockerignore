@@ -1,0 +1,7 @@
+*md
+.git
+.idea
+.kotlin
+build
+.env
+../build
