@@ -1,0 +1,11 @@
+
+ext {
+    extName = 'Novel Fire'
+    extClass = '.NovelFire'
+    themePkg = 'mangadventure'
+    baseUrl = 'https://novelbin.com'
+    isNsfw = true
+    overrideVersionCode=1
+}
+
+apply from: "$rootDir/common.gradle"
