@@ -67,7 +67,9 @@ class NovelFire :
                 name = a.selectFirst(".chapter-title")!!.text().trim()
                 setUrlWithoutDomain(a.attr("href"))
                 chapter_number = a.selectFirst(".chapter-no")!!.text().trim().toFloat()
-                date_upload = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH).parse(a.selectFirst(".chapter-update")!!.attr("datetime"))!!.time
+                date_upload = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ENGLISH).parse(
+                    a.selectFirst(".chapter-update")!!.attr("datetime"),
+                )!!.time
             }
         }
         return chapters
@@ -91,7 +93,13 @@ class NovelFire :
             title = info.selectFirst(".novel-title")!!.text()
             author = info.selectFirst("div.author a span")!!.text()
             genre = info.select("div.categories ul li").joinToString(", ") { it.text() }
-            description = document.selectFirst("#info div.summary div.content")!!.text()
+            description = document.selectFirst("#info div.summary div.content")!!.text().trim().replace("Show More", "").trim().run {
+                val l = document.select("#info .tags ul li")
+                if (l.isNotEmpty()) {
+                    val tags = l.joinToString(", ") { it.text().trim() }
+                    "$this\n\nTags: $tags"
+                } else this
+            }
             thumbnail_url = document.selectFirst("div.fixed-img .cover img")!!.attr("src")
             status = when (
                 info.select(".header-stats span").filter { e -> e.selectFirst("small")!!.text().trim() == "Status" }
@@ -171,6 +179,16 @@ class NovelFire :
             padding = "30px",
         )
     }
+
+//    override fun getFilterList(): FilterList {
+//        val res = client.newCall(GET("$baseUrl/search-adv")).execute()
+//        val doc = res.asJsoup()
+//        val lang = doc.selectFirst("#adv-search .adv-select")!!.select("label").map { it.text().trim() }
+//        return FilterList(
+//            Filter.Header("Origin / Raw Language"),
+//            LangFilter(lang),
+//        )
+//    }
 
     private val defaultBackendUrl = "https://test-api.kayt.cloud"
     private val backendUrlKey = "backend_api_url"

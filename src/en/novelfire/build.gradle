@@ -5,7 +5,7 @@ ext {
     themePkg = 'mangadventure'
     baseUrl = 'https://novelbin.com'
     isNsfw = true
-    overrideVersionCode=1
+    overrideVersionCode=1.1
 }
 
 apply from: "$rootDir/common.gradle"
