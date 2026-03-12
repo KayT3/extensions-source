@@ -23,6 +23,7 @@ Steps:
 
 * Extensions use a **third-party API** to generate novel chapter images.
 * That API is written in **C#** and is available publicly on my GitHub profile.
+* You can run it locally and change the URL inside the extension
 * This repository is mainly for **personal use and experimentation**.
 
 ## Credits
