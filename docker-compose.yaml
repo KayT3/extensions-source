@@ -9,6 +9,6 @@ services:
         KEY_PASSWORD: ${KEY_PASSWORD}
     ports:
       - "8899:80"
-
-
+    volumes:
+      - ./repo.json:/usr/share/nginx/html/repo.json
 
