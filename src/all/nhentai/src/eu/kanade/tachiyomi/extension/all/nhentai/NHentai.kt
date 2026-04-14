@@ -66,8 +66,17 @@ open class NHentai(
 
     private val shortenTitleRegex = Regex("""(\[[^]]*]|[({][^)}]*[)}])""")
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
+    // Two formats: most galleries include milliseconds, some don't
+    private val dateFormats = listOf(
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+        SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") },
+    )
+
+    private fun parseDatetime(dateStr: String): Long {
+        for (fmt in dateFormats) {
+            runCatching { fmt.parse(dateStr)?.time }.getOrNull()?.let { return it }
+        }
+        return 0L
     }
 
     private fun String.shortenTitle() = replace(shortenTitleRegex, "").trim()
@@ -269,9 +278,7 @@ open class NHentai(
         val document = response.asJsoup()
 
         val dateStr = document.selectFirst("time[datetime]")?.attr("datetime")
-        val uploadDate = dateStr?.let {
-            runCatching { dateFormat.parse(it)?.time }.getOrNull()
-        } ?: 0L
+        val uploadDate = if (dateStr != null) parseDatetime(dateStr) else 0L
 
         val groups = document.select("#tags .tag-container")
             .firstOrNull { it.ownText().startsWith("Groups") }
@@ -296,15 +303,41 @@ open class NHentai(
     // ── Pages ────────────────────────────────────────────────────────────────
 
     override fun pageListParse(document: Document): List<Page> {
-        // Thumbnails: t3.nhentai.net/galleries/{media_id}/1t.webp
-        // Full image: i3.nhentai.net/galleries/{media_id}/1.webp
         return document.select("a.gallerythumb img").mapIndexed { i, img ->
-            val thumbSrc = img.attr("src")
-            val imageSrc = thumbSrc
-                .replace(Regex("""//t(\d+)\."""), "//i$1.")   // thumb host → image host
-                .replace(Regex("""(\d+)t\.(\w+)$"""), "$1.$2") // strip trailing 't' before ext
-            Page(index = i, imageUrl = imageSrc)
+            Page(index = i, imageUrl = thumbToImageUrl(img.attr("src")))
         }
+    }
+
+    // thumb: https://t3.nhentai.net/galleries/{media_id}/1t.webp
+    // image: https://i3.nhentai.net/galleries/{media_id}/1.webp
+    private fun thumbToImageUrl(src: String): String {
+        if (src.isBlank()) return src
+
+        val scheme = src.substringBefore("://") + "://"
+        val afterScheme = src.substringAfter("://")
+        val host = afterScheme.substringBefore("/")
+        val path = afterScheme.substringAfter(host) // /galleries/{id}/1t.webp
+
+        // t3.nhentai.net → i3.nhentai.net (only if host starts with t + digit)
+        val imageHost = if (host.length > 1 && host[0] == 't' && host[1].isDigit()) {
+            "i" + host.drop(1)
+        } else {
+            host
+        }
+
+        // 1t.webp → 1.webp  (remove trailing 't' before extension, only when preceded by digits)
+        val dir = path.substringBeforeLast("/")
+        val file = path.substringAfterLast("/")
+        val ext = file.substringAfterLast(".", missingDelimiterValue = "")
+        val stem = if (ext.isNotEmpty()) file.dropLast(ext.length + 1) else file  // "1t"
+        val cleanStem = if (stem.endsWith("t") && stem.length > 1 && stem.dropLast(1).all(Char::isDigit)) {
+            stem.dropLast(1)  // "1t" → "1"
+        } else {
+            stem
+        }
+        val cleanFile = if (ext.isNotEmpty()) "$cleanStem.$ext" else cleanStem
+
+        return "$scheme$imageHost$dir/$cleanFile"
     }
 
     override fun imageUrlParse(document: Document) = throw UnsupportedOperationException()
