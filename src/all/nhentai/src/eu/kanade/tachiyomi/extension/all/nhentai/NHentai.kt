@@ -277,12 +277,16 @@ open class NHentai(
     override fun chapterListParse(response: Response): List<SChapter> {
         val document = response.asJsoup()
 
+        // Try attribute selector first; fall back to iterating all <time> elements
+        // (SvelteKit comment nodes can occasionally interfere with attribute selectors)
         val dateStr = document.selectFirst("time[datetime]")?.attr("datetime")
+            ?: document.select("time").firstOrNull { it.hasAttr("datetime") }?.attr("datetime")
         val uploadDate = if (dateStr != null) parseDatetime(dateStr) else 0L
 
         val groups = document.select("#tags .tag-container")
             .firstOrNull { it.ownText().startsWith("Groups") }
             ?.select("a.tag .name")
+            ?.map { it.text() }
             ?.joinToString(", ")
             ?.takeIf { it.isNotBlank() }
 
