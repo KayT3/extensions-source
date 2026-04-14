@@ -308,34 +308,39 @@ open class NHentai(
         }
     }
 
-    // thumb: https://t3.nhentai.net/galleries/{media_id}/1t.webp
-    // image: https://i3.nhentai.net/galleries/{media_id}/1.webp
+    // CDN thumbnail URL patterns observed:
+    //   1t.jpg.webp  →  full image: 1.jpg   (JPEG original, CDN adds .webp to thumb)
+    //   2t.webp.webp →  full image: 2.webp  (WebP original, CDN adds extra .webp to thumb)
+    //   3t.webp      →  full image: 3.webp  (native WebP, no extra suffix)
+    // Rule: strip 't' marker, then strip CDN-appended trailing .webp if something remains.
     private fun thumbToImageUrl(src: String): String {
         if (src.isBlank()) return src
 
         val scheme = src.substringBefore("://") + "://"
         val afterScheme = src.substringAfter("://")
         val host = afterScheme.substringBefore("/")
-        val path = afterScheme.substringAfter(host) // /galleries/{id}/1t.webp
+        val path = afterScheme.substringAfter(host)
 
-        // t3.nhentai.net → i3.nhentai.net (only if host starts with t + digit)
+        // t3.nhentai.net → i3.nhentai.net
         val imageHost = if (host.length > 1 && host[0] == 't' && host[1].isDigit()) {
             "i" + host.drop(1)
         } else {
             host
         }
 
-        // 1t.webp → 1.webp  (remove trailing 't' before extension, only when preceded by digits)
         val dir = path.substringBeforeLast("/")
         val file = path.substringAfterLast("/")
-        val ext = file.substringAfterLast(".", missingDelimiterValue = "")
-        val stem = if (ext.isNotEmpty()) file.dropLast(ext.length + 1) else file  // "1t"
-        val cleanStem = if (stem.endsWith("t") && stem.length > 1 && stem.dropLast(1).all(Char::isDigit)) {
-            stem.dropLast(1)  // "1t" → "1"
-        } else {
-            stem
+
+        // Step 1: "1t.jpg.webp" → "1.jpg.webp"  (strip page-thumbnail 't' marker)
+        val withoutT = file.replace(Regex("""^(\d+)t\."""), "$1.")
+
+        // Step 2: strip CDN-appended trailing .webp only when a real extension still remains
+        //   "1.jpg.webp" → stripped="1.jpg" → has dot → use "1.jpg"
+        //   "2.webp.webp" → stripped="2.webp" → has dot → use "2.webp"
+        //   "3.webp"      → stripped="3"      → no dot  → keep "3.webp"
+        val cleanFile = withoutT.substringBeforeLast(".webp").let { stripped ->
+            if (stripped.contains('.')) stripped else withoutT
         }
-        val cleanFile = if (ext.isNotEmpty()) "$cleanStem.$ext" else cleanStem
 
         return "$scheme$imageHost$dir/$cleanFile"
     }
